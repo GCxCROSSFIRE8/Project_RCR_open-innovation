@@ -1,66 +1,46 @@
 import { NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import * as geofire from 'geofire-common';
-import { analyzeCrisisRequest } from '@/lib/gemini';
+import { crisisAgentApp } from '@/lib/agents/graph';
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    // In this route, the payment record would already have `isSimulation: true`
-    // but for the sake of the getter, we allow a bypass based on development mode
-    const db = getAdminDb(true); 
-    const { 
-      userId, 
-      text, 
-      lat, 
-      lng, 
-      paymentDocId 
-    } = body;
+    const db = getAdminDb(true);
+    const { userId, text, lat, lng, paymentDocId } = body;
 
-    // Validate inputs
     if (!userId || !text || lat === undefined || lng === undefined || !paymentDocId) {
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
     }
 
-    // 1. AI Analysis
-    const aiAnalysis = await analyzeCrisisRequest(text);
+    // 1. Run Autonomous Agent
+    console.log('[API] Triggering Autonomous Crisis Agent...');
+    const agentState = await crisisAgentApp.invoke({
+      crisisRequest: text,
+      messages: [],
+    });
+    console.log(`[API] Agent done. Risk: ${agentState.riskLevel}, Bounty: ₹${agentState.bountyAmount}`);
 
-    // Temporary local bypass disabled (Razorpay integrated)
-
-    // 2. Check payment authenticity before creating request
+    // 2. Verify Payment and create Request in a transaction
     const paymentRef = db.collection('payments').doc(paymentDocId);
-    
-    // We use a transaction to safely mark payment as used and create the request
-    const newRequestData = await db.runTransaction(async (transaction) => {
-      const paymentDoc = await transaction.get(paymentRef);
 
-      if (!paymentDoc.exists) {
-        throw new Error('Payment record not found');
-      }
+    const newRequestData = await db.runTransaction(async (transaction: any) => {
+      const paymentDoc = await transaction.get(paymentRef);
+      if (!paymentDoc.exists) throw new Error('Payment record not found');
 
       const paymentData = paymentDoc.data();
-
-      // Ensure payment is verified (paid or simulated_paid)
       const isPaid = paymentData?.status === 'paid' || paymentData?.status === 'simulated_paid';
-      if (!isPaid) {
-        throw new Error('Payment is not verified or failed');
-      }
+      if (!isPaid) throw new Error('Payment is not verified');
+      if (paymentData?.usedForRequest) throw new Error('Payment already used');
+      if (paymentData?.userId !== userId) throw new Error('Payment user mismatch');
 
-      // Check for duplicate request creation using the same payment
-      if (paymentData?.usedForRequest) {
-        throw new Error('This payment has already been used to create a request');
-      }
-
-      // Validate userId matches the payment's userId
-      if (paymentData?.userId !== userId) {
-        throw new Error('Payment user does not match request user');
-      }
-
-      // 2. Create the Request reference
       const requestRef = db.collection('requests').doc();
-      
-      // Calculate Geohash for distance querying
       const geohash = geofire.geohashForLocation([lat, lng]);
+
+      // Extract the AI's final summary message
+      const messages = agentState.messages || [];
+      const lastMsg = messages[messages.length - 1];
+      const aiSummary = lastMsg?.content?.toString().slice(0, 200) || 'Agent processed this crisis.';
 
       const payload = {
         id: requestRef.id,
@@ -68,36 +48,30 @@ export async function POST(req: Request) {
         text,
         lat,
         lng,
-        geohash, // Added geohash for real-time localized querying
+        geohash,
         status: 'pending',
-        risk: aiAnalysis.risk,
-        aiAdvice: aiAnalysis.advice,
-        aiSummary: aiAnalysis.summary,
-        paymentId: paymentDocId, // Link the request to the payment
+        // Agent outputs
+        risk: agentState.riskLevel || 'MEDIUM',
+        bounty: agentState.bountyAmount || 50,
+        agentStatus: agentState.status || 'COMPLETED',
+        // AI summary from agent messages
+        aiSummary,
+        aiAdvice: `Dynamic bounty of ₹${agentState.bountyAmount} assigned. Validators notified within 5km radius.`,
+        paymentId: paymentDocId,
         createdAt: new Date().toISOString(),
       };
 
-      // Create Request
       transaction.set(requestRef, payload);
-      
-      // Update Payment to prevent duplicate usage
-      transaction.update(paymentRef, { 
-        usedForRequest: true, 
-        requestId: requestRef.id 
-      });
+      transaction.update(paymentRef, { usedForRequest: true, requestId: requestRef.id });
 
       return payload;
     });
 
-    return NextResponse.json({ 
-      success: true, 
-      request: newRequestData 
-    }, { status: 201 });
+    return NextResponse.json({ success: true, request: newRequestData }, { status: 201 });
 
   } catch (error: any) {
     console.error('Error creating request:', error);
-    // Determine status code based on error message thrown inside transaction
-    const status = error.message.includes('Payment') ? 403 : 500;
+    const status = error.message?.includes('Payment') ? 403 : 500;
     return NextResponse.json({ error: error.message }, { status });
   }
 }

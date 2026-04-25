@@ -5,52 +5,41 @@ import { getAdminDb } from '@/lib/firebase-admin';
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const isSimulation = body.isSimulation === true;
-    const db = getAdminDb(isSimulation);
-    const { 
-      razorpay_order_id, 
-      razorpay_payment_id, 
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
       razorpay_signature,
-      paymentDocId 
+      paymentDocId,
+      isSimulation,
     } = body;
 
-    const { mode } = getRazorpayConfig();
-    const isSimulation = mode === 'SIMULATION';
+    if (!paymentDocId) {
+      return NextResponse.json({ error: 'Missing paymentDocId' }, { status: 400 });
+    }
+
     const db = getAdminDb(isSimulation);
 
-    // ... (input validation logic here)
-
-    // Special Bypass for Simulation Mode
-    if (isSimulation) {
-      console.log('--- Verify API: SIMULATION MODE Bypassing Signature ---');
-    } else {
+    if (!isSimulation) {
       const secret = process.env.RAZORPAY_KEY_SECRET;
       if (!secret) throw new Error('Razorpay Secret Missing');
-
       const shasum = crypto.createHmac('sha256', secret);
       shasum.update(`${razorpay_order_id}|${razorpay_payment_id}`);
       const digest = shasum.digest('hex');
-
       if (digest !== razorpay_signature) {
-        throw new Error('Invalid signature');
+        throw new Error('Invalid payment signature');
       }
+    } else {
+      console.log('--- Verify API: SIMULATION MODE — Bypassing Signature Check ---');
     }
 
-    // 2. Fetch and Update the corresponding payment record
     const paymentRef = db.collection('payments').doc(paymentDocId);
-    
     await paymentRef.update({
       status: isSimulation ? 'simulated_paid' : 'paid',
-      razorpayPaymentId: razorpay_payment_id,
+      razorpayPaymentId: razorpay_payment_id || 'sim_payment',
       verifiedAt: new Date().toISOString(),
     });
 
-    // 4. Return success to the frontend, authorizing it to proceed to create-request
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Payment verified successfully',
-      paymentDocId 
-    }, { status: 200 });
+    return NextResponse.json({ success: true, paymentDocId }, { status: 200 });
 
   } catch (error: any) {
     console.error('Error verifying payment:', error);

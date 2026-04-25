@@ -9,6 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@langchain/core": "^1.1.40",
+    "@langchain/google-genai": "^2.1.27",
+    "@langchain/langgraph": "^1.2.9",
     "@types/leaflet": "^1.9.21",
     "firebase": "^12.12.0",
     "firebase-admin": "^13.8.0",

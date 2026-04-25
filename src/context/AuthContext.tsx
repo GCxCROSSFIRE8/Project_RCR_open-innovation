@@ -1,8 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { 
-  auth, 
+import {
+  auth,
   db,
   onAuthStateChanged,
   doc,
@@ -39,6 +39,18 @@ const AuthContext = createContext<AuthContextType>({
   logout: async () => {},
 });
 
+const MOCK_PROFILE: UserProfile = {
+  id: "mock_user_001",
+  name: "Demo User",
+  email: "demo@localyze.ai",
+  role: "seeker",
+  trustScore: 85,
+  totalRequests: 5,
+  totalValidations: 2,
+  earnings: 120,
+  createdAt: new Date().toISOString(),
+};
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -47,56 +59,64 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const pathname = usePathname();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user);
-      
-      if (user) {
-        // ... (existing logic)
-        const userRef = doc(db, 'users', user.uid);
-        const unsubscribeProfile = onSnapshot(userRef, (docSnap) => {
-          if (docSnap.exists()) {
-            setProfile(docSnap.data() as UserProfile);
-          } else {
-             // ... handle new profile creation
-             if (user.providerData.some(p => p.providerId === 'google.com')) {
-               const newProfile: UserProfile = {
-                 id: user.uid,
-                 name: user.displayName || 'Anonymous User',
-                 email: user.email || '',
-                 role: 'seeker',
-                 trustScore: 50,
-                 totalRequests: 0,
-                 totalValidations: 0,
-                 earnings: 0,
-                 createdAt: new Date().toISOString(),
-               };
-               setDoc(userRef, newProfile);
-            }
+    // ─── SIMULATION MODE ─────────────────────────────────────────────
+    // When running with mock Firebase keys, skip auth entirely and
+    // inject a demo profile so the entire app is fully usable.
+    const isMockMode = !process.env.NEXT_PUBLIC_FIREBASE_API_KEY ||
+      process.env.NEXT_PUBLIC_FIREBASE_API_KEY === 'mock_key';
+
+    if (isMockMode) {
+      console.warn('[Localyze] Simulation Mode: Auth bypassed with demo profile.');
+      setProfile(MOCK_PROFILE);
+      setUser(null);
+      setLoading(false);
+      return; // Skip Firebase listeners entirely
+    }
+
+    // ─── LIVE MODE ────────────────────────────────────────────────────
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setUser(firebaseUser);
+
+      if (firebaseUser) {
+        const userRef = doc(db, 'users', firebaseUser.uid);
+        const unsubProfile = onSnapshot(userRef, (snap) => {
+          if (snap.exists()) {
+            setProfile(snap.data() as UserProfile);
+          } else if (firebaseUser.providerData.some(p => p.providerId === 'google.com')) {
+            const newProfile: UserProfile = {
+              id: firebaseUser.uid,
+              name: firebaseUser.displayName || 'Anonymous',
+              email: firebaseUser.email || '',
+              role: 'seeker',
+              trustScore: 50,
+              totalRequests: 0,
+              totalValidations: 0,
+              earnings: 0,
+              createdAt: new Date().toISOString(),
+            };
+            setDoc(userRef, newProfile);
           }
         });
 
-        if (user.emailVerified && pathname === '/auth') {
+        if (firebaseUser.emailVerified && pathname === '/auth') {
           router.push('/dashboard');
         }
-        
-        return () => unsubscribeProfile();
+        setLoading(false);
+        return () => unsubProfile();
       } else {
         setProfile(null);
-        // Protect all routes except Landing (/) and Auth (/auth)
+        setLoading(false);
         if (pathname !== '/auth' && pathname !== '/') {
           router.push('/auth');
         }
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();
   }, [pathname, router]);
 
   const logout = async () => {
-    if (auth) {
-      await signOut(auth);
-    }
+    if (auth) await signOut(auth);
     router.push('/auth');
   };
 
@@ -104,7 +124,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     <AuthContext.Provider value={{ user, profile, loading, logout }}>
       {loading ? (
         <div className="min-h-screen flex items-center justify-center bg-gray-950">
-          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <div className="text-center space-y-4">
+            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-gray-500 text-sm font-medium">Initializing Localyze...</p>
+          </div>
         </div>
       ) : (
         children

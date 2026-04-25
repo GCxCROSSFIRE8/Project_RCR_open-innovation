@@ -6,7 +6,8 @@ import {
   getDoc as firestoreGetDoc, 
   updateDoc as firestoreUpdateDoc,
   onSnapshot as firestoreOnSnapshot,
-  collection as firestoreCollection
+  collection as firestoreCollection,
+  query as firestoreQuery
 } from 'firebase/firestore';
 import { 
   getAuth, 
@@ -16,7 +17,8 @@ import {
   createUserWithEmailAndPassword as firebaseCreateUser,
   signOut as firebaseSignOut,
   sendEmailVerification as firebaseSendVerification,
-  sendPasswordResetEmail as firebaseSendReset
+  sendPasswordResetEmail as firebaseSendReset,
+  signInWithPopup as firebaseSignInWithPopup
 } from 'firebase/auth';
 import { mockAuth, mockDb, mockGoogleProvider } from './mock-services';
 
@@ -30,7 +32,11 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase only if it hasn't been initialized and config is valid
-const hasValidConfig = !!(firebaseConfig.apiKey && firebaseConfig.projectId);
+const hasValidConfig = !!(
+  firebaseConfig.apiKey && 
+  firebaseConfig.projectId && 
+  firebaseConfig.apiKey !== 'your_api_key'
+);
 
 let app: any;
 try {
@@ -75,6 +81,10 @@ export const sendEmailVerification = (user: any) => {
 
 export const sendPasswordResetEmail = (authInstance: any, email: string) => {
   return app ? firebaseSendReset(authInstance, email) : Promise.resolve();
+};
+
+export const signInWithPopup = (authInstance: any, provider: any) => {
+  return app ? firebaseSignInWithPopup(authInstance, provider) : mockAuth.signInWithPopup(authInstance, provider);
 };
 
 // Firestore Wrappers

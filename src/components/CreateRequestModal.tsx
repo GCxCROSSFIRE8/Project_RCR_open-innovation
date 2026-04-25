@@ -121,9 +121,9 @@ export default function CreateRequestModal({ isOpen, onClose, userLat, userLng }
 
   const getRiskStyle = (risk: string) => {
     switch (risk) {
-      case 'HIGH':   return 'border-red-500 bg-red-950/40 text-red-300';
-      case 'MEDIUM': return 'border-yellow-500 bg-yellow-950/40 text-yellow-300';
-      default:       return 'border-green-500 bg-green-950/40 text-green-300';
+      case 'HIGH':   return 'border-blue-600/30 bg-blue-50/50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400';
+      case 'MEDIUM': return 'border-gray-400 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white';
+      default:       return 'border-gray-200 bg-gray-50/50 dark:bg-gray-900/50 text-gray-500';
     }
   };
 
@@ -225,12 +225,12 @@ export default function CreateRequestModal({ isOpen, onClose, userLat, userLng }
                 </div>
 
                 {/* Agent Results Card */}
-                <div className={`border rounded-2xl p-5 space-y-4 ${getRiskStyle(result.risk)}`}>
+                <div className={`border rounded-2xl p-5 space-y-4 ${getRiskStyle(result.riskLevel)}`}>
                   <div className="flex justify-between items-center">
                     <span className="text-xs font-bold uppercase tracking-widest opacity-70 flex items-center gap-2">
                       <Bot className="w-3 h-3" /> Agent Assessment
                     </span>
-                    <span className="font-black text-xs px-3 py-1 bg-black/30 rounded-full">{result.risk} RISK</span>
+                    <span className="font-black text-xs px-3 py-1 bg-black/30 rounded-full">{result.riskLevel} RISK</span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
@@ -245,8 +245,8 @@ export default function CreateRequestModal({ isOpen, onClose, userLat, userLng }
                   </div>
 
                   <div className="bg-black/20 rounded-xl p-3">
-                    <p className="text-[10px] uppercase tracking-widest opacity-60 mb-2">AI Advice</p>
-                    <p className="text-sm leading-relaxed">{result.aiAdvice}</p>
+                    <p className="text-[10px] uppercase tracking-widest opacity-60 mb-2">AI Summary</p>
+                    <p className="text-sm leading-relaxed">{result.summary || 'Crisis processed by autonomous agent.'}</p>
                   </div>
                 </div>
 

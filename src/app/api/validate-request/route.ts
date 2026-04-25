@@ -34,7 +34,7 @@ export async function POST(req: Request) {
       if (!requestDoc.exists) throw new Error('Request not found');
 
       const requestData = requestDoc.data();
-      if (requestData?.status !== 'pending') throw new Error('Request has already been validated');
+      if (requestData?.status !== 'pending') throw new Error('Request has already been resolved or validated completely');
 
       // Location check (skip in simulation)
       if (!isSimulation && validatorLat !== undefined && validatorLng !== undefined) {
@@ -44,52 +44,122 @@ export async function POST(req: Request) {
         }
       }
 
-      // Use agent-assigned dynamic bounty, fall back to ₹10
-      const REWARD_AMOUNT = requestData?.bounty || 10;
-
-      const validatorDoc = await transaction.get(validatorRef);
-      const newStatus = response === 'confirm' ? 'verified' : 'rejected';
-      transaction.update(requestRef, { status: newStatus });
-
+      // Add vote
       const validationRef = db.collection('validations').doc();
+      const validatorDoc = await transaction.get(validatorRef);
+      const trustScore = validatorDoc.data()?.trustScore || 50;
+      
       transaction.set(validationRef, {
-        id: validationRef.id, requestId, validatorId, response,
+        id: validationRef.id,
+        requestId,
+        validatorId,
+        response,
+        trustScore,
         timestamp: new Date().toISOString()
       });
 
-      if (response === 'confirm') {
-        const earningRef = db.collection('earnings').doc();
-        transaction.set(earningRef, {
-          id: earningRef.id, validatorId, requestId,
-          payoutAmount: REWARD_AMOUNT, status: 'pending'
-        });
-        if (validatorDoc.exists) {
-          transaction.update(validatorRef, {
-            earnings: (validatorDoc.data()?.earnings || 0) + REWARD_AMOUNT,
-            trustScore: (validatorDoc.data()?.trustScore || 50) + 10,
-            totalValidations: (validatorDoc.data()?.totalValidations || 0) + 1,
-          });
-        }
-      } else {
-        if (validatorDoc.exists) {
-          transaction.update(validatorRef, {
-            totalValidations: (validatorDoc.data()?.totalValidations || 0) + 1,
+      // Trust Engine Logic: Gather all validations to check for majority
+      const validationsSnapshot = await db.collection('validations').where('requestId', '==', requestId).get();
+      
+      // We manually add the IN-FLIGHT vote we just placed because it is part of this transaction
+      const allVotes = validationsSnapshot.docs.map((d: any) => d.data());
+      allVotes.push({ requestId, validatorId, response, trustScore });
+
+      // Deduplicate in case of weird double submissions
+      const uniqueVotesCheck = new Set();
+      const filteredVotes = allVotes.filter((v: any) => {
+        if (uniqueVotesCheck.has(v.validatorId)) return false;
+        uniqueVotesCheck.add(v.validatorId);
+        return true;
+      });
+
+      const REQUIRED_VOTES = 2; // Min 2 for majority logic in V1
+      
+      if (filteredVotes.length < REQUIRED_VOTES) {
+        // Not enough data yet
+        return { newStatus: 'pending', complete: false, reward: 0 };
+      }
+
+      // Calculate Weighted Majority
+      // Weight = trustScore / 50
+      let confirmWeight = 0;
+      let rejectWeight = 0;
+
+      filteredVotes.forEach((v: any) => {
+        const weight = Math.max(0.1, v.trustScore / 50);
+        if (v.response === 'confirm') confirmWeight += weight;
+        else rejectWeight += weight;
+      });
+
+      const REWARD_AMOUNT = requestData?.bounty || 10;
+      let finalDecision: 'verified' | 'rejected' | null = null;
+
+      // Arbitrary delta to confirm consensus
+      if (confirmWeight > rejectWeight + 0.5) finalDecision = 'verified';
+      else if (rejectWeight > confirmWeight + 0.5) finalDecision = 'rejected';
+
+      if (!finalDecision) {
+        // Conflicting, wait for more validators
+        return { newStatus: 'under_review', complete: false, reward: 0 };
+      }
+
+      // Consensus Reached! Update DB
+      transaction.update(requestRef, { status: finalDecision });
+
+      // Calculate distributions based on outcome
+      for (const v of filteredVotes) {
+        const isCorrect = v.response === (finalDecision === 'verified' ? 'confirm' : 'reject');
+        const vRef = db.collection('users').doc(v.validatorId);
+        const vDoc = await transaction.get(vRef);
+        
+        if (vDoc.exists) {
+          const currentData = vDoc.data() || {};
+          let newTrust = currentData.trustScore || 50;
+          let newEarnings = currentData.earnings || 0;
+          
+          if (isCorrect) {
+            newTrust += 10;
+            if (finalDecision === 'verified') {
+               newEarnings += REWARD_AMOUNT; // Earn only on truth confirmation, or if 'reject' gave bounty too
+               const earningRef = db.collection('earnings').doc();
+               transaction.set(earningRef, {
+                 id: earningRef.id, validatorId: v.validatorId, requestId,
+                 payoutAmount: REWARD_AMOUNT, status: 'paid'
+               });
+            }
+          } else {
+            newTrust -= 20; // Penalize incorrect
+          }
+          
+          transaction.update(vRef, {
+            trustScore: Math.max(0, newTrust),
+            earnings: parseFloat(newEarnings.toString()) || 0,
+            totalValidations: (currentData.totalValidations || 0) + 1
           });
         }
       }
 
-      return { newStatus, reward: response === 'confirm' ? REWARD_AMOUNT : 0 };
+      return { newStatus: finalDecision, complete: true, reward: finalDecision === 'verified' ? REWARD_AMOUNT : 0 };
     });
 
-    return NextResponse.json({
-      success: true,
-      message: `Request ${transactionResult.newStatus}.`,
-      rewardEarned: transactionResult.reward
-    }, { status: 200 });
+    if (transactionResult.complete) {
+       return NextResponse.json({
+         success: true,
+         message: `Network consensus reached: ${transactionResult.newStatus}.`,
+         resolved: true
+       }, { status: 200 });
+    } else {
+       return NextResponse.json({
+         success: true,
+         message: `Validation logged. Waiting for more verifications.`,
+         resolved: false
+       }, { status: 200 });
+    }
 
   } catch (error: any) {
-    console.error('Validation Error:', error);
-    const status = error.message.includes('already been validated') ? 409 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    console.error('[API] Validation Error:', error);
+    const msg = error?.message || 'Unknown error occurred during validation';
+    const status = msg.includes('has already been resolved') ? 409 : 500;
+    return NextResponse.json({ error: msg }, { status });
   }
 }

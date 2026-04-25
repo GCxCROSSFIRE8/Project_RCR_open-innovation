@@ -1,28 +1,27 @@
 'use client';
 
 import Link from 'next/link';
-import { ShieldAlert, MapPin, Target, Zap, ChevronRight, Globe, ShieldCheck } from 'lucide-react';
+import { ShieldAlert, MapPin, Zap, ChevronRight, ShieldCheck } from 'lucide-react';
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-gray-950 text-white selection:bg-blue-500/30 overflow-x-hidden">
+    <div className="min-h-screen bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white overflow-x-hidden">
       {/* Navbar */}
-      <nav className="fixed top-0 w-full z-50 border-b border-white/5 bg-gray-950/80 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-900/40">
-                <ShieldAlert className="w-6 h-6 text-white" />
+      <nav className="fixed top-0 w-full z-50 border-b border-gray-200 dark:border-gray-800 bg-white/90 dark:bg-[#0a0a0a]/90 backdrop-blur-sm">
+        <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+             <div className="w-8 h-8 bg-gray-900 dark:bg-white rounded-lg flex items-center justify-center">
+                <ShieldAlert className="w-5 h-5 text-white dark:text-gray-900" />
              </div>
-             <span className="text-2xl font-black tracking-tighter">Localyze.</span>
+             <span className="text-xl font-bold tracking-tight">Localyze</span>
           </div>
-          <div className="hidden md:flex items-center gap-8 text-sm font-bold text-gray-400 uppercase tracking-widest">
-             <a href="#features" className="hover:text-white transition-colors">Features</a>
-             <a href="#network" className="hover:text-white transition-colors">Network</a>
-             <Link href="/auth" className="text-white hover:text-blue-500 transition-colors">Login</Link>
+          <div className="hidden md:flex items-center gap-6 text-sm font-medium text-gray-500">
+             <a href="#features" className="hover:text-gray-900 dark:hover:text-white transition-colors">Features</a>
+             <Link href="/auth" className="hover:text-gray-900 dark:hover:text-white transition-colors">Login</Link>
           </div>
           <Link 
             href="/auth?mode=signup" 
-            className="bg-white text-black px-6 py-2.5 rounded-full font-black text-sm uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all active:scale-95"
+            className="bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-5 py-2 rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity btn-press"
           >
             Join Network
           </Link>
@@ -30,75 +29,65 @@ export default function LandingPage() {
       </nav>
 
       <main>
-        {/* Hero Section */}
-        <section className="relative pt-40 pb-20 px-6">
-          {/* Animated background glow */}
-          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/10 blur-[150px] rounded-full pointer-events-none animate-pulse"></div>
-          <div className="absolute top-1/2 left-0 w-[300px] h-[300px] bg-indigo-600/10 blur-[150px] rounded-full pointer-events-none"></div>
-
-          <div className="max-w-7xl mx-auto text-center space-y-8 relative z-10">
-            <div className="inline-flex items-center gap-2 bg-blue-900/30 border border-blue-500/30 px-4 py-2 rounded-full text-blue-400 text-xs font-black uppercase tracking-widest animate-in fade-in slide-in-from-top-4 duration-700">
-               <Zap className="w-3 h-3 fill-current" />
-               v1.0 is now live
-            </div>
-            <h1 className="text-6xl md:text-8xl font-black tracking-tighter leading-[0.95] animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100">
-               REAL-TIME PAID <br />
-               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500">
-                  CRISIS VERIFICATION
-               </span>
+        {/* Hero */}
+        <section className="pt-32 pb-16 px-6">
+          <div className="max-w-3xl mx-auto text-center space-y-6">
+            <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">Real-time crisis intelligence</p>
+            <h1 className="text-4xl md:text-6xl font-bold tracking-tight leading-tight">
+               Verify crises locally.<br />
+               <span className="text-gray-400 dark:text-gray-500">Trust what's real.</span>
             </h1>
-            <p className="max-w-2xl mx-auto text-gray-400 text-lg md:text-xl font-medium leading-relaxed animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200">
-              Transform local eyes into global truth. A decentralized network powered by AI to verify emergencies, reduce panic, and reward accuracy.
+            <p className="max-w-xl mx-auto text-gray-500 text-lg leading-relaxed">
+              A decentralized network where local users report, AI classifies, and validators confirm — producing trusted, real-time local intelligence.
             </p>
-            <div className="flex flex-col md:flex-row items-center justify-center gap-4 pt-4 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
               <Link 
                 href="/dashboard" 
-                className="group relative px-10 py-5 bg-blue-600 rounded-2xl font-black text-lg uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-900/40 flex items-center gap-2"
+                className="group px-8 py-3.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg font-semibold text-base hover:opacity-90 transition-opacity flex items-center gap-2 btn-press"
               >
-                Launch Dashboard
-                <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                Open Dashboard
+                <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
               </Link>
               <Link 
                 href="/whitepaper"
-                className="px-10 py-5 bg-gray-900 border border-white/10 rounded-2xl font-black text-lg uppercase tracking-widest hover:bg-gray-800 transition-all text-center"
+                className="px-8 py-3.5 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg font-semibold text-base hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors btn-press"
               >
-                The Whitepaper
+                Read Whitepaper
               </Link>
             </div>
           </div>
         </section>
 
-        {/* Stats Grid */}
-        <section id="features" className="py-20 px-6 max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center md:text-left">
+        {/* Features */}
+        <section id="features" className="py-16 px-6 max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { label: 'Precision Location', desc: '500m mandatory proximity check ensures validators are on the ground.', icon: MapPin },
-              { label: 'AI Validation', desc: 'Gemini-powered risk assessment classifies and summarizes every report.', icon: Zap },
-              { label: 'Economic Trust', desc: 'Financial rewards tied to truth. Penalties for misinformation.', icon: ShieldCheck },
+              { label: 'Precision Location', desc: '500m proximity check ensures validators are physically present at the scene.', icon: MapPin },
+              { label: 'AI Classification', desc: 'Multi-agent pipeline triages risk, detects spam, and categorizes every report.', icon: Zap },
+              { label: 'Trust Network', desc: 'Weighted consensus from multiple validators. Reputation-based rewards and penalties.', icon: ShieldCheck },
             ].map((feature, i) => (
-              <div key={i} className="bg-gray-900/50 border border-white/5 p-10 rounded-[32px] hover:bg-gray-900 transition-all group">
-                <div className="w-14 h-14 bg-gray-950 rounded-2xl flex items-center justify-center mb-8 border border-white/10 group-hover:scale-110 transition-transform">
-                   <feature.icon className="w-7 h-7 text-blue-500" />
+              <div key={i} className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-8 rounded-2xl hover-lift">
+                <div className="w-10 h-10 bg-white dark:bg-gray-800 rounded-xl flex items-center justify-center mb-6 border border-gray-200 dark:border-gray-700">
+                   <feature.icon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                 </div>
-                <h3 className="text-2xl font-black mb-4 tracking-tight">{feature.label}</h3>
-                <p className="text-gray-500 font-medium leading-relaxed">{feature.desc}</p>
+                <h3 className="text-lg font-bold mb-2">{feature.label}</h3>
+                <p className="text-gray-500 text-sm leading-relaxed">{feature.desc}</p>
               </div>
             ))}
           </div>
         </section>
 
-        {/* Global Network Visual */}
-        <section id="network" className="py-20 px-6 text-center border-t border-white/5 bg-gradient-to-b from-gray-950 to-blue-950/20">
-           <div className="max-w-4xl mx-auto space-y-6">
-              <Globe className="w-20 h-20 text-blue-500/20 mx-auto mb-4" />
-              <h2 className="text-4xl md:text-5xl font-black tracking-tight italic">TRUSTED BY 14.5K VOLUNTEERS</h2>
-              <p className="text-gray-500 font-black text-sm uppercase tracking-[0.3em]">Building the future of community resilience</p>
+        {/* Network */}
+        <section className="py-16 px-6 text-center border-t border-gray-200 dark:border-gray-800">
+           <div className="max-w-3xl mx-auto space-y-3">
+              <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Community-powered verification</h2>
+              <p className="text-gray-500 text-sm">AI-assisted. Human-verified. Locally trusted.</p>
            </div>
         </section>
       </main>
 
-      <footer className="py-20 px-6 border-t border-white/5 text-center text-gray-600">
-         <p className="text-sm font-bold uppercase tracking-widest">© 2026 Localyze AI. Distributed Crisis Verification.</p>
+      <footer className="py-12 px-6 border-t border-gray-200 dark:border-gray-800 text-center">
+         <p className="text-xs text-gray-400">© 2026 Localyze. Distributed Crisis Verification.</p>
       </footer>
     </div>
   );

@@ -3,11 +3,25 @@ import { BaseMessage } from "@langchain/core/messages";
 export interface AgentState {
   messages: BaseMessage[];
   crisisRequest: string;
+  
+  // Triage & Category
   riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | null;
-  validatorsFound: string[];
-  assignedValidator: string | null;
+  category: string | null;
+  
+  // Spam & Priority
+  isSpam: boolean | null;
+  priorityScore: number | null;
+  
+  // RAG
+  ragContext: string;
+  
+  // Final Output
+  summary: string | null;
+  
+  // Legacy fields (Bounty & Validation)
   bountyAmount: number;
-  status: 'ANALYZING' | 'SEARCHING_VALIDATORS' | 'ASSIGNED' | 'ESCALATED' | 'COMPLETED';
+  
+  status: 'ANALYZING' | 'TRIAGED' | 'CLASSIFIED' | 'CHECKED_SPAM' | 'RAG_COMPLETE' | 'COMPLETED';
 }
 
 export const agentStateChannels = {
@@ -23,20 +37,32 @@ export const agentStateChannels = {
     value: (x: 'LOW' | 'MEDIUM' | 'HIGH' | null, y: 'LOW' | 'MEDIUM' | 'HIGH' | null) => y ?? x,
     default: () => null,
   },
-  validatorsFound: {
-    value: (x: string[], y: string[]) => x.concat(y),
-    default: () => [],
+  category: {
+    value: (x: string | null, y: string | null) => y ?? x,
+    default: () => null,
   },
-  assignedValidator: {
+  isSpam: {
+    value: (x: boolean | null, y: boolean | null) => y ?? x,
+    default: () => null,
+  },
+  priorityScore: {
+    value: (x: number | null, y: number | null) => y ?? x,
+    default: () => null,
+  },
+  ragContext: {
+    value: (x: string, y: string) => y ?? x,
+    default: () => "",
+  },
+  summary: {
     value: (x: string | null, y: string | null) => y ?? x,
     default: () => null,
   },
   bountyAmount: {
     value: (x: number, y: number) => y ?? x,
-    default: () => 50, // Default bounty
+    default: () => 50,
   },
   status: {
-    value: (x: 'ANALYZING' | 'SEARCHING_VALIDATORS' | 'ASSIGNED' | 'ESCALATED' | 'COMPLETED', y: 'ANALYZING' | 'SEARCHING_VALIDATORS' | 'ASSIGNED' | 'ESCALATED' | 'COMPLETED') => y ?? x,
-    default: () => 'ANALYZING',
+    value: (x: AgentState['status'], y: AgentState['status']) => y ?? x,
+    default: (): AgentState['status'] => 'ANALYZING' as const,
   }
 };

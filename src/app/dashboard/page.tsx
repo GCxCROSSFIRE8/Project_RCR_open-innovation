@@ -2,95 +2,111 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { Plus, User, Award, ShieldCheck, FlaskConical, AlertTriangle } from 'lucide-react';
-import Link from 'next/link';
+import { Plus, ShieldCheck, FlaskConical, Award } from 'lucide-react';
 import CrisisMap from '@/components/Map';
 import CreateRequestModal from '@/components/CreateRequestModal';
+import NewsFeed from '@/components/NewsFeed';
+
+import { useGeolocation } from '@/lib/hooks';
+import { SimulationEngine, SimulationItem } from '@/lib/simulation-engine';
+import { db, collection, setDoc, doc } from '@/lib/firebase';
 
 export default function DashboardPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { profile } = useAuth();
+  const { location } = useGeolocation();
   const [isLiveMode, setIsLiveMode] = useState(false);
+  const [radius, setRadius] = useState(10);
+  const [isSubscribed, setIsSubscribed] = useState(false);
   
-  // Use static coordinates for the demo (Delhi)
-  const defaultLat = 28.6139;
-  const defaultLng = 77.2090;
+  const userLat = location?.lat || 28.6139;
+  const userLng = location?.lng || 77.2090;
 
   useEffect(() => {
-    // Basic check for mode
-    const hasKeys = !!(process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID);
+    const hasKeys = !!(process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID && process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID !== 'mock_rzp_key');
     setIsLiveMode(hasKeys);
-  }, []);
+
+    // ─── SIMULATION LOOP ─────────────────────────────────────────────
+    // Generate new reports periodically to make the app feel alive
+    if (!hasKeys) {
+      const engine = new SimulationEngine(userLat, userLng);
+      
+      const interval = setInterval(() => {
+        const newItems = engine.generateItems(1);
+        newItems.forEach(async (item) => {
+          const docRef = doc(db, 'requests', item.id);
+          await setDoc(docRef, {
+            ...item,
+            riskLevel: item.category === 'CRITICAL' ? 'HIGH' : item.category === 'IMPORTANT' ? 'MEDIUM' : 'LOW',
+            createdAt: item.timestamp,
+            isSimulation: true
+          });
+        });
+      }, 15000); // New event every 15s
+
+      return () => clearInterval(interval);
+    }
+  }, [userLat, userLng]);
 
   if (!profile) return null;
 
   return (
-    <main className="relative w-full h-screen bg-gray-900 overflow-hidden">
-      {/* Dynamic Mode Badge */}
-      <div className="absolute top-24 left-6 z-20 animate-in slide-in-from-left duration-500">
-        {isLiveMode ? (
-          <div className="flex items-center gap-2 bg-green-900/40 backdrop-blur-md border border-green-500/50 px-4 py-2 rounded-full text-green-400 text-xs font-black uppercase tracking-widest shadow-lg">
-             <ShieldCheck className="w-4 h-4" />
-             Live Payments Active
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 bg-orange-900/40 backdrop-blur-md border border-orange-500/50 px-4 py-2 rounded-full text-orange-400 text-xs font-black uppercase tracking-widest shadow-lg">
-             <FlaskConical className="w-4 h-4" />
-             Simulation Mode Active
-          </div>
-        )}
-      </div>
-
-      {/* Header overlay */}
-      <div className="absolute top-0 left-0 right-0 z-10 p-6 flex justify-between items-start bg-gradient-to-b from-gray-950 to-transparent pointer-events-none">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white font-black italic text-xl shadow-lg shadow-blue-900/40">
-            {profile.name.charAt(0)}
-          </div>
-          <div>
-            <h1 className="text-2xl font-black tracking-tighter text-white">
-              Localyze <span className="text-blue-500">.</span>
-            </h1>
-            <p className="text-gray-400 text-xs font-bold uppercase tracking-widest flex items-center gap-1">
-              <Award className="w-3 h-3 text-blue-500" />
-              Score: {profile.trustScore}
-            </p>
+    <div className="relative w-full h-full bg-white dark:bg-[#0a0a0a] overflow-hidden flex flex-col md:flex-row">
+      {/* Map Area */}
+      <div className="flex-1 relative w-full h-full">
+        {/* Dynamic Mode Badge */}
+        <div className="absolute top-6 left-6 z-20 flex gap-2">
+          {isLiveMode ? (
+            <div className="flex items-center gap-2 bg-white/90 dark:bg-black/80 backdrop-blur-sm border border-gray-200 dark:border-gray-800 px-3 py-1.5 rounded-lg text-gray-900 dark:text-white text-xs font-medium shadow-sm">
+               <ShieldCheck className="w-3.5 h-3.5" />
+               Live
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 bg-white/90 dark:bg-black/80 backdrop-blur-sm border border-gray-200 dark:border-gray-800 px-3 py-1.5 rounded-lg text-gray-600 dark:text-gray-400 text-xs font-medium shadow-sm">
+               <FlaskConical className="w-3.5 h-3.5" />
+               Sandbox
+            </div>
+          )}
+          <div className="flex items-center gap-2 bg-white/90 dark:bg-black/80 backdrop-blur-sm border border-gray-200 dark:border-gray-800 px-3 py-1.5 rounded-lg text-gray-900 dark:text-white text-xs font-medium shadow-sm">
+             <Award className="w-3.5 h-3.5 text-gray-500" />
+             Trust: {profile.trustScore}
           </div>
         </div>
 
-        <Link 
-          href="/profile" 
-          className="pointer-events-auto bg-gray-900/50 backdrop-blur-md border border-gray-800 hover:bg-gray-800 p-3 rounded-2xl transition-all shadow-xl text-gray-400 hover:text-white"
-        >
-          <User className="w-6 h-6" />
-        </Link>
+        {/* Mapbox Layer */}
+        <div className="absolute inset-0">
+          <CrisisMap />
+        </div>
+
+        {/* Floating Action Button */}
+        <div className="absolute bottom-6 right-6 z-20 flex flex-col items-end gap-4 pointer-events-none">
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="pointer-events-auto bg-gray-900 dark:bg-white text-white dark:text-gray-900 p-4 rounded-xl shadow-lg hover-lift btn-press flex items-center justify-center group"
+          >
+            <Plus className="w-7 h-7 group-hover:rotate-90 transition-transform duration-200" />
+          </button>
+        </div>
       </div>
 
-      {/* Mapbox Layer */}
-      <CrisisMap />
-
-      {/* Floating Action Button */}
-      <div className="absolute bottom-10 right-10 z-20 flex flex-col items-end gap-4">
-        {!isLiveMode && (
-          <div className="bg-gray-900/80 backdrop-blur-md p-3 rounded-2xl border border-gray-800 text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] max-w-[200px] text-right">
-             Reviewing in sandbox environment. All payments are simulated.
-          </div>
-        )}
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white p-5 rounded-3xl shadow-2xl shadow-blue-500/50 hover:scale-105 active:scale-95 transition-all flex items-center justify-center group"
-        >
-          <Plus className="w-8 h-8 group-hover:rotate-90 transition-transform duration-300" />
-        </button>
+      {/* News Feed Sidebar */}
+      <div className="hidden lg:block h-full z-10 w-80 shadow-[-10px_0_20px_rgba(0,0,0,0.05)] dark:shadow-none">
+        <NewsFeed 
+          userLat={userLat} 
+          userLng={userLng} 
+          radius={radius} 
+          onRadiusChange={setRadius} 
+          isSubscribed={isSubscribed}
+          onSubscriptionToggle={() => setIsSubscribed(!isSubscribed)}
+        />
       </div>
 
-      {/* Submitting Request Modal - Now explicitly controlled by isModalOpen */}
       <CreateRequestModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
-        userLat={defaultLat} 
-        userLng={defaultLng} 
+        userLat={userLat} 
+        userLng={userLng} 
       />
-    </main>
+    </div>
   );
 }

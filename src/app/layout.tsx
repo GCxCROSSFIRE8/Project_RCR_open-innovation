@@ -18,6 +18,7 @@ export const metadata: Metadata = {
 };
 
 import { AuthProvider } from "@/context/AuthContext";
+import GlobalLayout from "@/components/GlobalLayout";
 
 export default function RootLayout({
   children,
@@ -32,7 +33,9 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <AuthProvider>
-          {children}
+          <GlobalLayout>
+            {children}
+          </GlobalLayout>
         </AuthProvider>
       </body>
     </html>

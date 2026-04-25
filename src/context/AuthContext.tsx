@@ -62,8 +62,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // ─── SIMULATION MODE ─────────────────────────────────────────────
     // When running with mock Firebase keys, skip auth entirely and
     // inject a demo profile so the entire app is fully usable.
-    const isMockMode = !process.env.NEXT_PUBLIC_FIREBASE_API_KEY ||
-      process.env.NEXT_PUBLIC_FIREBASE_API_KEY === 'mock_key';
+    const fbKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || '';
+    const isMockMode = !fbKey || fbKey === 'mock_key' || fbKey === 'your_api_key' || fbKey.trim() === '';
 
     if (isMockMode) {
       console.warn('[Localyze] Simulation Mode: Auth bypassed with demo profile.');
@@ -74,15 +74,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     // ─── LIVE MODE ────────────────────────────────────────────────────
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: any) => {
       setUser(firebaseUser);
 
       if (firebaseUser) {
         const userRef = doc(db, 'users', firebaseUser.uid);
-        const unsubProfile = onSnapshot(userRef, (snap) => {
+        const unsubProfile = onSnapshot(userRef, (snap: any) => {
           if (snap.exists()) {
             setProfile(snap.data() as UserProfile);
-          } else if (firebaseUser.providerData.some(p => p.providerId === 'google.com')) {
+          } else if (firebaseUser.providerData.some((p: any) => p.providerId === 'google.com')) {
             const newProfile: UserProfile = {
               id: firebaseUser.uid,
               name: firebaseUser.displayName || 'Anonymous',

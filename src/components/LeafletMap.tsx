@@ -12,21 +12,21 @@ interface CrisisRequest {
   lat: number;
   lng: number;
   text: string;
-  risk: 'LOW' | 'MEDIUM' | 'HIGH' | 'PENDING';
-  status: 'pending' | 'verified' | 'rejected';
-  aiSummary: string;
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'PENDING';
+  status: 'pending' | 'verified' | 'rejected' | 'under_review' | 'resolved' | 'expired';
+  summary: string;
 }
 
 // Map risk to styling and create Leaflet DivIcons
-const getRiskIcon = (risk: string) => {
-  let color = 'text-green-500';
+const getRiskIcon = (riskLevel: string) => {
+  let color = 'text-gray-400';
   let IconComponent = FileWarning;
 
-  if (risk === 'HIGH') {
-    color = 'text-red-600';
+  if (riskLevel === 'HIGH') {
+    color = 'text-blue-600'; // The subtle accent
     IconComponent = ShieldAlert;
-  } else if (risk === 'MEDIUM') {
-    color = 'text-yellow-500';
+  } else if (riskLevel === 'MEDIUM') {
+    color = 'text-gray-900 dark:text-white';
     IconComponent = AlertCircle;
   }
 
@@ -65,34 +65,35 @@ export default function LeafletMap() {
     if (!db) {
       console.warn('LeafletMap: Using Mock Requests for simulation.');
       setRequests([
-        { id: 'm1', lat: 28.6139, lng: 77.2090, text: 'Flash flood reported near park', risk: 'HIGH', status: 'pending', aiSummary: 'Immediate evacuation suggested.' },
-        { id: 'm2', lat: 28.6339, lng: 77.2190, text: 'Tree fallen on power line', risk: 'MEDIUM', status: 'verified', aiSummary: 'Utility team notified.' }
+        { id: 'm1', lat: 28.6139, lng: 77.2090, text: 'Flash flood reported near park', riskLevel: 'HIGH', status: 'pending', summary: 'Immediate evacuation suggested.' },
+        { id: 'm2', lat: 28.6339, lng: 77.2190, text: 'Tree fallen on power line', riskLevel: 'MEDIUM', status: 'verified', summary: 'Utility team notified.' }
       ]);
       return;
     }
 
     // Listen to all requests in real time for the demo
     const q = query(collection(db, 'requests'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data: CrisisRequest[] = [];
-      snapshot.forEach((doc) => {
-        data.push({ id: doc.id, ...doc.data() } as CrisisRequest);
-      });
-      setRequests(data);
-    }, (err) => {
-      console.error('Firestore Error in Map:', err);
+    const unsubscribe = onSnapshot(q, (snapshot: any) => {
+      try {
+        const data: CrisisRequest[] = [];
+        snapshot.forEach((doc: any) => {
+          data.push({ id: doc.id, ...doc.data() } as CrisisRequest);
+        });
+        setRequests(data);
+      } catch (err) {
+        console.error('Firestore Error in Map:', err);
+      }
     });
 
     return () => unsubscribe();
   }, []);
 
-  const getRiskStyles = (risk: string) => {
-    switch (risk) {
-      case 'HIGH': return { color: 'text-red-600' };
-      case 'MEDIUM': return { color: 'text-yellow-500' };
+  const getRiskStyles = (riskLevel: string) => {
+    switch (riskLevel) {
+      case 'HIGH': return { color: 'text-blue-600' };
+      case 'MEDIUM': return { color: 'text-gray-900 dark:text-white' };
       case 'LOW':
-      case 'PENDING':
-      default: return { color: 'text-green-500' };
+      default: return { color: 'text-gray-400' };
     }
   };
 
@@ -114,7 +115,7 @@ export default function LeafletMap() {
           <Marker
             key={req.id}
             position={[req.lat, req.lng]}
-            icon={getRiskIcon(req.risk)}
+            icon={getRiskIcon(req.riskLevel)}
             eventHandlers={{
               click: () => setSelectedRequest(req)
             }}
@@ -122,13 +123,13 @@ export default function LeafletMap() {
             <Popup className="custom-popup">
               <div className="p-2 w-64">
                 <div className="flex items-center justify-between mb-2">
-                  <span className={`text-xs font-bold px-2 py-1 rounded bg-opacity-20 ${getRiskStyles(req.risk).color} ${getRiskStyles(req.risk).color.replace('text-', 'bg-')}`}>
-                    {req.risk} RISK
+                  <span className={`text-xs font-bold px-2 py-1 rounded ${getRiskStyles(req.riskLevel).color}`}>
+                    {req.riskLevel} RISK
                   </span>
                   <span className="text-xs text-gray-500 uppercase font-bold">{req.status}</span>
                 </div>
                 <p className="font-semibold text-gray-800 text-sm mb-1 line-clamp-3">{req.text}</p>
-                <p className="text-gray-600 text-xs italic border-t border-gray-100 pt-1 mt-1">{req.aiSummary}</p>
+                <p className="text-gray-600 text-xs italic border-t border-gray-100 pt-1 mt-1">{req.summary}</p>
               </div>
             </Popup>
           </Marker>

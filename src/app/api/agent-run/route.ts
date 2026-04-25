@@ -11,10 +11,10 @@ export async function POST(req: Request) {
 
     console.log(`[API /agent-run] Starting agent for: "${crisisRequest.slice(0, 60)}..."`);
 
-    const finalState = await crisisAgentApp.invoke({
+    const finalState: any = await crisisAgentApp.invoke({
       crisisRequest,
       messages: [],
-    });
+    } as any);
 
     return NextResponse.json({
       success: true,

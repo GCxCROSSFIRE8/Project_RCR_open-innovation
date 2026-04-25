@@ -15,10 +15,10 @@ export async function POST(req: Request) {
 
     // 1. Run Autonomous Agent
     console.log('[API] Triggering Autonomous Crisis Agent...');
-    const agentState = await crisisAgentApp.invoke({
+    const agentState: any = await crisisAgentApp.invoke({
       crisisRequest: text,
       messages: [],
-    });
+    } as any);
     console.log(`[API] Agent done. Risk: ${agentState.riskLevel}, Bounty: ₹${agentState.bountyAmount}`);
 
     // 2. Verify Payment and create Request in a transaction
@@ -50,13 +50,14 @@ export async function POST(req: Request) {
         lng,
         geohash,
         status: 'pending',
-        // Agent outputs
-        risk: agentState.riskLevel || 'MEDIUM',
+        // Agent outputs (Updated for Localyze Multi-Agent)
+        riskLevel: agentState.riskLevel || 'MEDIUM',
+        category: agentState.category || 'general',
+        priorityScore: agentState.priorityScore || 50,
+        isSpam: !!agentState.isSpam,
+        summary: agentState.summary || 'Event processed by agent.',
         bounty: agentState.bountyAmount || 50,
         agentStatus: agentState.status || 'COMPLETED',
-        // AI summary from agent messages
-        aiSummary,
-        aiAdvice: `Dynamic bounty of ₹${agentState.bountyAmount} assigned. Validators notified within 5km radius.`,
         paymentId: paymentDocId,
         createdAt: new Date().toISOString(),
       };

@@ -1,20 +1,20 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ShieldCheck, XCircle, CheckCircle, Wallet, Loader2, Bot, Zap } from 'lucide-react';
+import { ShieldCheck, XCircle, CheckCircle, Wallet, Loader2, Bot } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import Link from 'next/link';
 
 interface CrisisRequest {
   id: string;
   text: string;
-  risk: string;
-  aiSummary: string;
-  aiAdvice: string;
+  riskLevel: string;
+  category: string;
+  summary: string;
   lat: number;
   lng: number;
   bounty?: number;
   agentStatus?: string;
+  priorityScore?: number;
 }
 
 export default function ValidatorPanel() {
@@ -41,7 +41,6 @@ export default function ValidatorPanel() {
 
   useEffect(() => {
     fetchRequests();
-    // Auto-refresh every 4 seconds — simulates real-time
     const interval = setInterval(fetchRequests, 4000);
     return () => clearInterval(interval);
   }, []);
@@ -66,7 +65,6 @@ export default function ValidatorPanel() {
         const req = requests.find(r => r.id === requestId);
         setBalance(prev => prev + (req?.bounty || 10));
       }
-      // Remove from list
       setRequests(prev => prev.filter(r => r.id !== requestId));
     } catch (err: any) {
       alert(`Error: ${err.message}`);
@@ -75,100 +73,91 @@ export default function ValidatorPanel() {
     }
   };
 
-  const riskBadge = (risk: string) => {
-    const styles: Record<string, string> = {
-      HIGH: 'bg-red-900/60 text-red-300 border border-red-700',
-      MEDIUM: 'bg-yellow-900/60 text-yellow-300 border border-yellow-700',
-      LOW: 'bg-green-900/60 text-green-300 border border-green-700',
-    };
-    return styles[risk] || 'bg-gray-800 text-gray-400 border border-gray-700';
+  const riskLabel = (risk: string) => {
+    if (risk === 'HIGH') return 'font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/20';
+    if (risk === 'MEDIUM') return 'font-bold text-gray-900 dark:text-white bg-gray-200 dark:bg-gray-800';
+    return 'font-medium text-gray-500 bg-gray-100 dark:bg-gray-900/50';
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white font-sans">
+    <div className="min-h-screen bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white">
       {/* Header */}
-      <div className="border-b border-gray-800 bg-gray-900 px-8 py-5 flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black text-lg">
+      <div className="border-b border-gray-200 dark:border-gray-800 px-6 md:px-8 py-4 flex justify-between items-center">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-gray-200 dark:bg-gray-800 rounded-lg flex items-center justify-center font-bold">
             {profile.name.charAt(0)}
           </div>
           <div>
-            <h1 className="text-xl font-black flex items-center gap-2">
-              <ShieldCheck className="w-5 h-5 text-blue-500" /> Validator Interface
+            <h1 className="text-lg font-bold flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-gray-400" /> Validator
             </h1>
-            <p className="text-gray-500 text-xs">Auto-refreshing · Last: {lastUpdate.toLocaleTimeString()}</p>
+            <p className="text-gray-500 text-xs">Last update: {lastUpdate.toLocaleTimeString()}</p>
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="bg-green-900/40 border border-green-700 px-5 py-2 rounded-full flex items-center gap-2">
-            <Wallet className="w-4 h-4 text-green-400" />
-            <span className="text-green-300 font-black text-lg">₹{balance}</span>
-          </div>
-          <Link href="/dashboard" className="text-gray-500 hover:text-white text-sm font-medium transition-colors">← Dashboard</Link>
+        <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-2 rounded-lg">
+          <Wallet className="w-4 h-4 text-gray-500" />
+          <span className="font-bold">₹{balance}</span>
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto p-8 space-y-6">
-        {/* Agent Status Banner */}
-        <div className="bg-blue-950/40 border border-blue-800 rounded-2xl px-6 py-4 flex items-center gap-3">
-          <Bot className="w-5 h-5 text-blue-400 animate-pulse" />
-          <div>
-            <p className="text-blue-300 font-bold text-sm">Autonomous AI Agent Active</p>
-            <p className="text-blue-500 text-xs">Agent automatically triages all incoming crises, assigns dynamic bounties, and routes tasks here.</p>
-          </div>
-          <div className="ml-auto flex items-center gap-2">
-            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-            <span className="text-green-400 text-xs font-bold uppercase tracking-widest">Live</span>
+      <div className="max-w-4xl mx-auto p-6 md:p-8 space-y-6">
+        {/* Agent Status */}
+        <div className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-5 py-3 flex items-center gap-3 text-sm">
+          <Bot className="w-4 h-4 text-gray-400" />
+          <p className="text-gray-500">AI Agent routes triaged crises here for human verification.</p>
+          <div className="ml-auto flex items-center gap-1.5">
+            <div className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
+            <span className="text-gray-400 text-xs font-medium">Active</span>
           </div>
         </div>
 
         {/* Requests */}
         <div>
-          <h2 className="text-lg font-bold text-gray-300 mb-4">
-            Pending Verifications <span className="bg-gray-800 px-2 py-0.5 rounded-full text-sm ml-1">{requests.length}</span>
+          <h2 className="text-base font-bold text-gray-600 dark:text-gray-400 mb-4">
+            Pending <span className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded text-sm ml-1">{requests.length}</span>
           </h2>
 
           {requests.length === 0 ? (
-            <div className="border-2 border-dashed border-gray-800 rounded-3xl p-16 text-center text-gray-600">
-              <ShieldCheck className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <div className="border border-dashed border-gray-300 dark:border-gray-700 rounded-2xl p-12 text-center text-gray-400">
+              <ShieldCheck className="w-10 h-10 mx-auto mb-3 opacity-30" />
               <p className="font-medium">All clear — no pending requests.</p>
               <p className="text-sm mt-1">Submit a crisis from the Dashboard to see it here.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {requests.map(req => (
-                <div key={req.id} className="bg-gray-900 border border-gray-800 rounded-2xl p-5 flex flex-col gap-4 hover:border-gray-600 transition-colors">
+                <div key={req.id} className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5 flex flex-col gap-3 hover-lift">
                   {/* Risk + Bounty */}
                   <div className="flex items-center justify-between">
-                    <span className={`text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider ${riskBadge(req.risk)}`}>
-                      {req.risk} RISK
+                    <span className={`text-xs px-2.5 py-1 rounded-lg bg-gray-200 dark:bg-gray-800 uppercase tracking-wide ${riskLabel(req.riskLevel)}`}>
+                      {req.riskLevel} risk
                     </span>
-                    <div className="flex items-center gap-1 text-yellow-400 font-black text-sm bg-yellow-900/30 px-3 py-1 rounded-full border border-yellow-800">
-                      <Zap className="w-3 h-3" /> ₹{req.bounty || 10} Reward
-                    </div>
+                    <span className="text-xs font-medium text-gray-500 bg-gray-100 dark:bg-gray-800 px-2.5 py-1 rounded-lg">
+                      ₹{req.bounty || 10} reward
+                    </span>
                   </div>
 
-                  {/* Crisis text */}
-                  <p className="text-gray-200 text-sm leading-relaxed font-medium">{req.text}</p>
+                  {/* Text */}
+                  <p className="text-sm leading-relaxed">{req.text}</p>
 
                   {/* AI Context */}
-                  <div className="bg-gray-800/60 border border-gray-700 rounded-xl p-3">
-                    <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-1 flex items-center gap-1">
+                  <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wide font-medium mb-1 flex items-center gap-1">
                       <Bot className="w-3 h-3" /> Agent Summary
                     </p>
-                    <p className="text-gray-400 text-xs italic">{req.aiSummary || req.aiAdvice}</p>
+                    <p className="text-gray-500 text-xs">{req.summary || 'Processed by agent.'}</p>
                   </div>
 
-                  <p className="text-gray-600 text-[10px]">
-                    📍 {req.lat?.toFixed(4)}, {req.lng?.toFixed(4)} · Status: {req.agentStatus || 'PENDING'}
+                  <p className="text-gray-400 text-[10px]">
+                    📍 {req.lat?.toFixed(4)}, {req.lng?.toFixed(4)} · {req.agentStatus || 'PENDING'}
                   </p>
 
                   {/* Actions */}
-                  <div className="flex gap-3">
+                  <div className="flex gap-2">
                     <button
                       onClick={() => handleValidation(req.id, 'reject')}
                       disabled={processingId !== null}
-                      className="flex-1 bg-red-950/40 hover:bg-red-900/60 border border-red-900 text-red-400 font-bold py-3 rounded-xl transition-colors disabled:opacity-40 flex items-center justify-center gap-2 text-sm"
+                      className="flex-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 font-medium py-2.5 rounded-lg transition-colors disabled:opacity-40 flex items-center justify-center gap-2 text-sm btn-press"
                     >
                       {processingId === req.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
                       Reject
@@ -176,10 +165,10 @@ export default function ValidatorPanel() {
                     <button
                       onClick={() => handleValidation(req.id, 'confirm')}
                       disabled={processingId !== null}
-                      className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-colors disabled:opacity-40 flex items-center justify-center gap-2 text-sm"
+                      className="flex-1 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-medium py-2.5 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-40 flex items-center justify-center gap-2 text-sm btn-press"
                     >
                       {processingId === req.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                      Confirm (+₹{req.bounty || 10})
+                      Confirm
                     </button>
                   </div>
                 </div>
